@@ -120,6 +120,7 @@ void sort_edges(std::vector<Segment>& segments, std::vector<Segment>& res)
     if (!been_visited[i])
     {
       been_visited[i] = true;
+      int push_count = 1;
       current = last = start = segments.at(i);
       res.push_back(start);
 
@@ -137,6 +138,7 @@ void sort_edges(std::vector<Segment>& segments, std::vector<Segment>& res)
           current = segments.at(j);
           if (current.source() == last.target())
           {
+	    push_count++;
             been_visited[j] = true;
             found = true;
             last = current;
@@ -149,6 +151,15 @@ void sort_edges(std::vector<Segment>& segments, std::vector<Segment>& res)
         {
           break;
         }
+      }
+      if (push_count >= 3)
+      {
+	res.push_back(start);
+      }
+      else
+      {
+	for (int j=0; j<push_count; j++)
+	  res.pop_back();
       }
     }
   }
