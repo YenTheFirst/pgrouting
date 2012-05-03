@@ -154,7 +154,7 @@ void sort_edges(std::vector<Segment>& segments, std::vector<Segment>& res)
       }
       if (push_count >= 3)
       {
-	res.push_back(start);
+        res.push_back(start);
       }
       else
       {
@@ -197,7 +197,7 @@ int alpha_shape(vertex_t *vertices, unsigned int count,
 
   Alpha_shape_2 A(points.begin(), points.end(),
                   coord_type(10000),
-                  Alpha_shape_2::GENERAL);
+                  Alpha_shape_2::REGULARIZED);
   
   std::vector<Segment> segments;
   std::vector<Segment> result;
