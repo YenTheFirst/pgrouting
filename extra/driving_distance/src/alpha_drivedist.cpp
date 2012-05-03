@@ -50,6 +50,10 @@ corresponding to the Alpha shape.
 #include <CGAL/Alpha_shape_face_base_2.h>
 #include <CGAL/Alpha_shape_vertex_base_2.h>
 
+#include "stdio.h"
+#define DBG(format, arg...)                     \
+    printf(format , ## arg);
+
 typedef double coord_type;
 
 typedef CGAL::Simple_cartesian<coord_type>  SC;
@@ -97,6 +101,61 @@ void find_next_edge(Segment s, std::vector<Segment>& segments,
     }
 }
 
+void sort_edges(std::vector<Segment>& segments, std::vector<Segment>& res)
+{
+  int size = segments.size();
+
+  //set our default been_visited
+  bool *been_visited = new bool[size];
+  for (int i=0; i<size; i++)
+  {
+    been_visited[i] = false;
+  }
+
+  Segment start, current, last;
+
+  for (int i=0; i<size; i++)
+  {
+    //top level. find a starting segment.
+    if (!been_visited[i])
+    {
+      been_visited[i] = true;
+      current = last = start = segments.at(i);
+      res.push_back(start);
+
+      //find the complete loop for this starting segment
+      while (current.target() != start.source())
+      {
+        //find the next link
+        bool found=false;
+        for (int j=0; j<size; j++)
+        {
+	  if (been_visited[j])
+	  {
+	    continue;
+	  }
+          current = segments.at(j);
+          if (current.source() == last.target())
+          {
+            been_visited[j] = true;
+            found = true;
+            last = current;
+            res.push_back(current);
+            break;
+          }
+        }
+        //if the cycle is broken, don't infinite loop
+        if (!found)
+        {
+          break;
+        }
+      }
+    }
+  }
+
+}
+
+
 template <class OutputIterator>
 void
 alpha_edges( const Alpha_shape_2&  A,
@@ -139,15 +198,20 @@ int alpha_shape(vertex_t *vertices, unsigned int count,
   Alpha_shape_2::Face_iterator fit;
   Alpha_shape_2::Face_handle face;
   
-  A.set_alpha(*A.find_optimal_alpha(1)*6); 
+  //A.set_alpha(*A.find_optimal_alpha(1)*6); 
+  //A.set_alpha(*A.find_optimal_alpha(1)); 
+  A.set_alpha(0.0001); 
 
   alpha_edges( A, std::back_inserter(segments));
 
   Segment s = segments.at(0);
-  find_next_edge(s, segments, result);
+  //find_next_edge(s, segments, result);
+  sort_edges(segments, result);
 
   *res = (vertex_t *) malloc(sizeof(vertex_t) * (result.size() + 1));
   *res_count = result.size();
+  DBG("count = %d", *res_count);
+
 
   for(int i=0;i < result.size(); i++)
     {
