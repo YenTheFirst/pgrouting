@@ -79,104 +79,72 @@ typedef Alpha_shape_2::Vertex_circulator  Vertex_circulator;
 typedef Alpha_shape_2::Alpha_iterator Alpha_iterator;
 typedef Alpha_shape_2::Alpha_shape_edges_iterator Alpha_shape_edges_iterator;
 
+//these bits are for the traverser
+#include <CGAL/Unique_hash_map.h>
+#include <CGAL/Edge_hash_function.h>
+typedef typename Dt::Face_handle Face_handle;
+typedef Tds::Edge Edge;
+typedef CGAL::Unique_hash_map< Edge, bool, CGAL::Edge_hash_function > Marked_edge_set;
+
 //---------------------------------------------------------------------
 
-void find_next_edge(Segment s, std::vector<Segment>& segments, 
-                    std::vector<Segment>& res)
-{
-  if(res.size() == segments.size())
-    return;
-    
-  res.push_back(s);
+template <class OutputIterator>
+void traverse(const Edge& starting_edge, Marked_edge_set& marked_edge_set, const Alpha_shape_2& A, OutputIterator out){
+  typedef typename Marked_edge_set::Data Data;
+  *out++ = A.segment(starting_edge);
+  Edge current_edge = starting_edge;
 
-  Point end = s.target();
-  
-  for(int i=0;i < segments.size(); i++)
-    {
-      Point source = segments.at(i).source();
-      if(source == end)
-        {
-          find_next_edge(segments.at(i), segments, res);
-        }
-    }
-}
+  //loop through edges until we get back to the starting edge
+  do
+  { 
+    //we want to find our source edge - the one that points to us.
+    //1. get the source vertex, and the circulator of edges that point there
+    Face_handle fh = current_edge.first;
+    Tds::Vertex_handle v = fh->vertex(A.ccw(current_edge.second));
+    Tds::Edge_circulator e_circ = A.incident_edges(v, fh);
+    Tds::Edge_circulator start_circ = e_circ;
 
-void sort_edges(std::vector<Segment>& segments, std::vector<Segment>& res)
-{
-  int size = segments.size();
+    //2. find the first edge, counterclockwise, that points to our source
+    bool found=false;
+    do{
+      if (A.classify(*e_circ) == Alpha_shape_2::REGULAR){
+        found=true;
+        break;
+      } 
+      e_circ++;
+    } 
+    while (start_circ != e_circ);
 
-  //set our default been_visited
-  bool *been_visited = new bool[size];
-  for (int i=0; i<size; i++)
-  {
-    been_visited[i] = false;
-  }
-
-  Segment start, current, last;
-
-  for (int i=0; i<size; i++)
-  {
-    //top level. find a starting segment.
-    if (!been_visited[i])
-    {
-      been_visited[i] = true;
-      int push_count = 1;
-      current = last = start = segments.at(i);
-      res.push_back(start);
-
-      //find the complete loop for this starting segment
-      while (current.target() != start.source())
-      {
-        //find the next link
-        bool found=false;
-        for (int j=0; j<size; j++)
-        {
-	  if (been_visited[j])
-	  {
-	    continue;
-	  }
-          current = segments.at(j);
-          if (current.source() == last.target())
-          {
-	    push_count++;
-            been_visited[j] = true;
-            found = true;
-            last = current;
-            res.push_back(current);
-            break;
-          }
-        }
-        //if the cycle is broken, don't infinite loop
-        if (!found)
-        {
-          break;
-        }
-      }
-      if (push_count >= 3)
-      {
-        res.push_back(start);
-      }
-      else
-      {
-	for (int j=0; j<push_count; j++)
-	  res.pop_back();
-      }
-    }
-  }
-
+    //3. add it
+    if (!found){
+      std::cout << "no source edge found\n";
+      break;
+    } 
+    else
+    { 
+      //found the previous edge.
+      current_edge = *e_circ;
+      marked_edge_set[current_edge] = true;
+      *out++ = A.segment(current_edge);
+    } 
+  }while (current_edge != starting_edge);
 }
 
 
 template <class OutputIterator>
-void
-alpha_edges( const Alpha_shape_2&  A,
-             OutputIterator out)
-{ 
+void visit_components(const Alpha_shape_2& A, OutputIterator out){
+  typedef typename Marked_edge_set::Data Data;
+  Marked_edge_set marked_edge_set(false);
+  Alpha_shape_edges_iterator edge_it;
 
-  for(Alpha_shape_edges_iterator it =  A.alpha_shape_edges_begin();
-      it != A.alpha_shape_edges_end();
-      ++it){
-    *out++ = A.segment(*it);
+  for( edge_it = A.alpha_shape_edges_begin(); edge_it != A.alpha_shape_edges_end(); ++edge_it)
+  {
+    Edge e = *edge_it;
+    Data & data = marked_edge_set[e];
+    if (data == false){
+      data = true;
+      traverse(e, marked_edge_set, A, out);
+    }
   }
 }
 
@@ -211,18 +179,14 @@ int alpha_shape(vertex_t *vertices, unsigned int count,
   
   //A.set_alpha(*A.find_optimal_alpha(1)*6); 
   //A.set_alpha(*A.find_optimal_alpha(1)); 
-  A.set_alpha(0.0001); 
+  A.set_alpha(0.000050); 
 
-  alpha_edges( A, std::back_inserter(segments));
-
-  Segment s = segments.at(0);
-  //find_next_edge(s, segments, result);
-  sort_edges(segments, result);
+  visit_components( A, std::back_inserter(segments));
+  result = segments;
 
   *res = (vertex_t *) malloc(sizeof(vertex_t) * (result.size() + 1));
   *res_count = result.size();
   DBG("count = %d", *res_count);
-
 
   for(int i=0;i < result.size(); i++)
     {
