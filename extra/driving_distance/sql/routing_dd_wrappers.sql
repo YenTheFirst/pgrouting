@@ -24,66 +24,10 @@
 -- Last changes: 14.02.2008
 ----------------------------------------------------------
 CREATE OR REPLACE FUNCTION points_as_polygon(query varchar)
-       RETURNS SETOF GEOMS AS
+       RETURNS GEOMETRY AS
 $$
-DECLARE
-     r record;
-     path_result record;					     
-     i int;							     
-     q text;
-     x float8[];
-     y float8[];
-     start_x float8;
-     start_y float8;
-     geom geoms;
-     id integer;
 BEGIN
-	
-     id :=0;
-									     
-     i := 1;								     
-     q := 'select 1 as gid, GeometryFromText(''MULTIPOLYGON(';
-     
-     FOR path_result IN EXECUTE 'select x, y from alphashape('''|| 
-         query || ''')' LOOP
-         x[i] = path_result.x;
-         y[i] = path_result.y;
-         i := i+1;
-     END LOOP;
-
-     start_x := x[1];
-     start_y := y[1];
-     q := q || '((' || x[1] || ' ' || y[1];
-     i := 2;
-
-     WHILE x[i] IS NOT NULL LOOP
-          q := q || ', ' || x[i] || ' ' || y[i];
-          if start_x = x[i] and start_y = y[i]
-          then
-               q := q || '))';
-               i := i+1;
-               if x[i] is not null
-               then
-                    start_x = x[i];
-                    start_y = y[i];
-                    q := q || ', ((' || x[i] || ' ' || y[i];
-               end if;
-          end if;
-          i := i + 1;
-     END LOOP;
-
---    q := q || ', ' || start_x[1] || ' ' || start_y[1];
-    q := q || ')'',-1) as the_geom';
-
-    FOR r in EXECUTE q LOOP
-         geom.gid:=r.gid;
-         geom.the_geom=r.the_geom;
-	 id := id+1;
-	 geom.id       := id;
-	 RETURN NEXT geom;
-    END LOOP;
-
-    RETURN;
+     RETURN ST_Geometry(alphashape(query));
 END;
 $$
 
