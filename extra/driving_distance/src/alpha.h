@@ -37,8 +37,7 @@ extern "C"
 #endif
                                                                      
   int alpha_shape(vertex_t *vertices, unsigned int count, 
-                  vertex_t **res, int *res_count, char **err_msg);
-
+                  char ** res, char **err_msg);
 #ifdef __cplusplus
 }
 #endif

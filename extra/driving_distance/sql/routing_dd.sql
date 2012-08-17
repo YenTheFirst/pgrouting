@@ -33,6 +33,6 @@ CREATE OR REPLACE FUNCTION driving_distance(sql text, source_id integer,
 -- vertex ids. 
 -----------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION alphashape(sql text)
-        RETURNS SETOF vertex_result
+        RETURNS text
         AS '$libdir/librouting_dd'
         LANGUAGE 'C' IMMUTABLE STRICT;

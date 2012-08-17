@@ -54,6 +54,9 @@ corresponding to the Alpha shape.
 #define DBG(format, arg...)                     \
     printf(format , ## arg);
 
+#include <sstream>
+#include <string>
+
 typedef double coord_type;
 
 typedef CGAL::Simple_cartesian<coord_type>  SC;
@@ -88,10 +91,9 @@ typedef CGAL::Unique_hash_map< Edge, bool, CGAL::Edge_hash_function > Marked_edg
 
 //---------------------------------------------------------------------
 
-template <class OutputIterator>
-void traverse(const Edge& starting_edge, Marked_edge_set& marked_edge_set, const Alpha_shape_2& A, OutputIterator out){
+void traverse(const Edge& starting_edge, Marked_edge_set& marked_edge_set, const Alpha_shape_2& A, std::ostream &out_stream){
   typedef typename Marked_edge_set::Data Data;
-  *out++ = A.segment(starting_edge);
+  out_stream << A.segment(starting_edge).source();
   Edge current_edge = starting_edge;
 
   //loop through edges until we get back to the starting edge
@@ -125,17 +127,18 @@ void traverse(const Edge& starting_edge, Marked_edge_set& marked_edge_set, const
       //found the previous edge.
       current_edge = *e_circ;
       marked_edge_set[current_edge] = true;
-      *out++ = A.segment(current_edge);
+      out_stream << ", " << A.segment(current_edge).source();
     } 
   }while (current_edge != starting_edge);
 }
 
 
-template <class OutputIterator>
-void visit_components(const Alpha_shape_2& A, OutputIterator out){
+void visit_components(const Alpha_shape_2& A, std::ostream &out_stream){
   typedef typename Marked_edge_set::Data Data;
   Marked_edge_set marked_edge_set(false);
   Alpha_shape_edges_iterator edge_it;
+
+  bool on_first = true;
 
   for( edge_it = A.alpha_shape_edges_begin(); edge_it != A.alpha_shape_edges_end(); ++edge_it)
   {
@@ -143,14 +146,20 @@ void visit_components(const Alpha_shape_2& A, OutputIterator out){
     Data & data = marked_edge_set[e];
     if (data == false){
       data = true;
-      traverse(e, marked_edge_set, A, out);
+      if (!on_first) {
+        out_stream << ",";
+        on_first = false;
+      }
+      out_stream << "((";
+      traverse(e, marked_edge_set, A, out_stream);
+      out_stream << "))";
     }
   }
 }
 
 
-int alpha_shape(vertex_t *vertices, unsigned int count, 
-                vertex_t **res, int *res_count, char **err_msg)
+int alpha_shape(vertex_t *vertices, unsigned int count,  
+                char ** res, char **err_msg)
 {
   std::list<Point> points;
 
@@ -167,32 +176,22 @@ int alpha_shape(vertex_t *vertices, unsigned int count,
                   coord_type(10000),
                   Alpha_shape_2::REGULARIZED);
   
-  std::vector<Segment> segments;
-  std::vector<Segment> result;
-
-  Alpha_shape_2::Alpha_shape_vertices_iterator vit;
-  Alpha_shape_2::Vertex_handle vertex;
-  Alpha_shape_2::Alpha_shape_edges_iterator eit;
-  Alpha_shape_2::Edge edge;
-  Alpha_shape_2::Face_iterator fit;
-  Alpha_shape_2::Face_handle face;
   
   //A.set_alpha(*A.find_optimal_alpha(1)*6); 
   //A.set_alpha(*A.find_optimal_alpha(1)); 
   A.set_alpha(0.000050); 
 
-  visit_components( A, std::back_inserter(segments));
-  result = segments;
+  std::stringstream out_stream;
 
-  *res = (vertex_t *) malloc(sizeof(vertex_t) * (result.size() + 1));
-  *res_count = result.size();
-  DBG("count = %d", *res_count);
+  out_stream << "MULTIPOLYGON(";
+  visit_components( A, out_stream);
+  out_stream << ")";
+  std::string str = out_stream.str();
 
-  for(int i=0;i < result.size(); i++)
-    {
-      (*res)[i].x = result.at(i).target().x();
-      (*res)[i].y = result.at(i).target().y();
-    }
+  //convert the stringstream into a c_str we can return it
+  const char * c_str = str.c_str();
+  (*res) = (char *)malloc(sizeof(char) * strlen(c_str));
+  strcpy(*res, c_str);
 
   return EXIT_SUCCESS;
 }

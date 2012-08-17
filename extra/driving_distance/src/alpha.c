@@ -29,7 +29,6 @@
 
 #include "fmgr.h"
 
-
 #ifdef PG_MODULE_MAGIC
 PG_MODULE_MAGIC;
 #endif
@@ -166,7 +165,7 @@ fetch_vertex(HeapTuple *tuple, TupleDesc *tupdesc,
   target_vertex->y = DatumGetFloat8(binval);
 }
 
-static int compute_alpha_shape(char* sql, vertex_t **res, int *res_count) 
+static int compute_alpha_shape(char* sql, char **res)
 {
 
   int SPIcode;
@@ -270,7 +269,7 @@ static int compute_alpha_shape(char* sql, vertex_t **res, int *res_count)
   profstop("extract", prof_extract);
   profstart(prof_alpha);
 
-  ret = alpha_shape(vertices, total_tuples, res, res_count, &err_msg);
+  ret = alpha_shape(vertices, total_tuples, res, &err_msg);
 
   profstop("alpha", prof_alpha);
   profstart(prof_store);
@@ -288,108 +287,26 @@ PG_FUNCTION_INFO_V1(alphashape);
 
 Datum alphashape(PG_FUNCTION_ARGS)
 {
-  FuncCallContext      *funcctx;
-  int                  call_cntr;
-  int                  max_calls;
-  TupleDesc            tuple_desc;
-  vertex_t     *res;
-                    
-  /* stuff done only on the first call of the function */
-  if (SRF_IS_FIRSTCALL())
-    {
-      MemoryContext   oldcontext;
-      int res_count;
-      int ret;
-                            
-      // XXX profiling messages are not thread safe
-      profstart(prof_total);
-      profstart(prof_extract);
-                                            
-      /* create a function context for cross-call persistence */
-      funcctx = SRF_FIRSTCALL_INIT();
-                                                                    
-      /* switch to memory context appropriate for multiple function calls */
-      oldcontext = MemoryContextSwitchTo(funcctx->multi_call_memory_ctx);
+  //result will be malloc()d by our compute function
+  char * result;
+  int ret;
+  //calculate our result
+  ret = compute_alpha_shape(text2char(PG_GETARG_TEXT_P(0)), &result);
 
-      ret = compute_alpha_shape(text2char(PG_GETARG_TEXT_P(0)), 
-                                &res, &res_count);
+  //return the result as a postgres text object.
+  //postgres text is a length header, followed by an array of bytes, that are NOT null terminated
+  //so, we don't add an extra byte to byte_count for the null.
+  //the length has to include the size of the header
+  int byte_count = (sizeof(char) * strlen(result));
+  int var_size = byte_count + VARHDRSZ;
+  elog(NOTICE, "returned from compute. have a byte count of %d and a var_size of %d. result = %s", byte_count, var_size, result);
 
-      /* total number of tuples to be returned */
-      DBG("Conting tuples number\n");
-      funcctx->max_calls = res_count;
-      funcctx->user_fctx = res;
+  text *return_string = (text *)palloc(var_size);
+  SET_VARSIZE(return_string, var_size);
+  memcpy(return_string->vl_dat, result, byte_count);
 
-      DBG("Total count %i", res_count);
+  //we own 'result', so we need to free the memory here.
+  free(result);
 
-      funcctx->tuple_desc = BlessTupleDesc(
-                           RelationNameGetTupleDesc("vertex_result"));
-
-      MemoryContextSwitchTo(oldcontext);
-    }
-
-  /* stuff done on every call of the function */
-  DBG("Strange stuff doing\n");
-  funcctx = SRF_PERCALL_SETUP();
-
-  call_cntr = funcctx->call_cntr;
-  max_calls = funcctx->max_calls;
-  tuple_desc = funcctx->tuple_desc;
-  res = (vertex_t*) funcctx->user_fctx;
-
-  DBG("Trying to allocate some memory\n");
-
-  if (call_cntr < max_calls)    /* do when there is more left to send */
-    {
-      HeapTuple    tuple;
-      Datum        result;
-      Datum *values;
-      char* nulls;
-
-      /* This will work for some compilers. If it crashes with segfault, try to change the following block with this one    
-
-      values = palloc(3 * sizeof(Datum));
-      nulls = palloc(3 * sizeof(char));
-
-      values[0] = call_cntr;
-      nulls[0] = ' ';
-      values[1] = Float8GetDatum(res[call_cntr].x);
-      nulls[1] = ' ';
-      values[2] = Float8GetDatum(res[call_cntr].y);
-      nulls[2] = ' ';
-      */
-    
-      values = palloc(2 * sizeof(Datum));
-      nulls = palloc(2 * sizeof(char));
-
-      values[0] = Float8GetDatum(res[call_cntr].x);
-      nulls[0] = ' ';
-      values[1] = Float8GetDatum(res[call_cntr].y);
-      nulls[1] = ' ';
-	
-      DBG("Heap making\n");
-
-      tuple = heap_formtuple(tuple_desc, values, nulls);
-
-      DBG("Datum making\n");
-
-      /* make the tuple into a datum */
-      result = HeapTupleGetDatum(tuple);
-
-      DBG("Trying to free some memory\n");
-
-      /* clean up (this is not really necessary) */
-      pfree(values);
-      pfree(nulls);
-
-      SRF_RETURN_NEXT(funcctx, result);
-    }
-  else    /* do when there is no more left */
-    {
-      profstop("store", prof_store);
-      profstop("total", prof_total);
-#ifdef PROFILE
-      elog(NOTICE, "_________");
-#endif
-      SRF_RETURN_DONE(funcctx);
-    }
+  PG_RETURN_TEXT_P(return_string);
 }
