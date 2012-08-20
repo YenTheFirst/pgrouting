@@ -192,7 +192,9 @@ int alpha_shape(vertex_t *vertices, unsigned int count,
 
   //convert the stringstream into a c_str we can return it
   const char * c_str = str.c_str();
-  (*res) = (char *)malloc(sizeof(char) * strlen(c_str));
+  //add 1 to the length to account for the null character
+  int len = strlen(c_str) + 1;
+  (*res) = (char *)malloc(sizeof(char) * len);
   strcpy(*res, c_str);
 
   return EXIT_SUCCESS;
