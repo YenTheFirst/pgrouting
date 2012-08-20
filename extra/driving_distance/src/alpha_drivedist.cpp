@@ -148,6 +148,8 @@ void visit_components(const Alpha_shape_2& A, std::ostream &out_stream){
       data = true;
       if (!on_first) {
         out_stream << ",";
+      }
+      else {
         on_first = false;
       }
       out_stream << "((";
