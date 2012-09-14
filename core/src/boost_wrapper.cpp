@@ -54,6 +54,41 @@ struct Vertex
     float8 cost;
 };
 
+// FIXME: use a template for the directedS parameters
+typedef adjacency_list < listS, vecS, directedS, no_property, Vertex> graph_t;
+typedef graph_traits < graph_t >::vertex_descriptor vertex_descriptor;
+typedef graph_traits < graph_t >::edge_descriptor edge_descriptor;
+typedef std::pair<int, int> Edge;
+
+void insert_graph_edge(graph_t &graph, int source, int target, float8 cost, int id)
+{
+  edge_descriptor existing_edge, new_edge; bool does_exist, inserted;
+  //this seems to be necessary to get GCC to set bundled properties properly.
+  //I don't know why.
+  //TODO: less magic.
+  std::pair<edge_descriptor, bool> edge_ret;
+
+  //see if the edge is already in the graph.
+  edge_ret = boost::edge(source, target, graph);
+  existing_edge = edge_ret.first;
+  does_exist = edge_ret.second;
+
+  if (does_exist && cost < graph[existing_edge].cost)
+  {
+    //if we have a lower cost, we should replace the existing.
+    remove_edge(existing_edge, graph);
+    does_exist = false;
+  }
+
+  if (!does_exist)
+  {
+    //add the new edge (or replacement edge, as the case may be)
+    edge_ret = add_edge(source, target, graph);
+    new_edge = edge_ret.first;
+    graph[new_edge].cost = cost;
+    graph[new_edge].id = id;
+  }
+}
 
 int 
 boost_dijkstra(edge_t *edges, unsigned int count, int max_id, int start_vertex, int end_vertex,
@@ -61,41 +96,28 @@ boost_dijkstra(edge_t *edges, unsigned int count, int max_id, int start_vertex, 
     path_element_t **path, int *path_count, char **err_msg)
 {
 
-    // FIXME: use a template for the directedS parameters
-    typedef adjacency_list < listS, vecS, directedS, no_property, Vertex> graph_t;
 
-    typedef graph_traits < graph_t >::vertex_descriptor vertex_descriptor;
-    typedef graph_traits < graph_t >::edge_descriptor edge_descriptor;
-    typedef std::pair<int, int> Edge;
 
   const unsigned int num_nodes = max_id;
 
-    graph_t graph(num_nodes);
+  graph_t graph(num_nodes);
+
+  edge_descriptor e; bool b;
 
     property_map<graph_t, edge_weight_t>::type weightmap = get(edge_weight, graph);
 
     for (std::size_t j = 0; j < count; ++j)
     {
-	edge_descriptor e; bool inserted;
-	tie(e, inserted) = add_edge(edges[j].source, edges[j].target, graph);
-
-	graph[e].cost = edges[j].cost;
-	graph[e].id = edges[j].id;
-				
-	if (!directed || (directed && has_reverse_cost))
-	{
-	    tie(e, inserted) = add_edge(edges[j].target, edges[j].source, graph);
-	    graph[e].id = edges[j].id;
-
-	    if (has_reverse_cost)
-	    {
-		graph[e].cost = edges[j].reverse_cost;
-	    }
-	    else 
-	    {
-		graph[e].cost = edges[j].cost;
-	    }
-	}
+      insert_graph_edge(graph, edges[j].source, edges[j].target, edges[j].cost, edges[j].id);
+      //std::cerr << "result: " << graph[boost::edge(edges[j].source, edges[j].target,graph).first].cost << "\n";
+      if (!directed)
+      {
+        insert_graph_edge(graph, edges[j].target, edges[j].source, edges[j].cost, edges[j].id);
+      }
+      if (directed && has_reverse_cost)
+      {
+        insert_graph_edge(graph, edges[j].target, edges[j].source, edges[j].reverse_cost, edges[j].id);
+      }
     }
 
     std::vector<vertex_descriptor> predecessors(num_vertices(graph));
