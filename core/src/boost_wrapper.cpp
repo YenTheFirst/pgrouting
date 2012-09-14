@@ -90,7 +90,7 @@ void insert_graph_edge(graph_t &graph, int source, int target, float8 cost, int 
   }
 }
 
-int 
+int
 boost_dijkstra(edge_t *edges, unsigned int count, int max_id, int start_vertex, int end_vertex,
     bool directed, bool has_reverse_cost,
     path_element_t **path, int *path_count, char **err_msg)
@@ -124,7 +124,7 @@ boost_dijkstra(edge_t *edges, unsigned int count, int max_id, int start_vertex, 
 
     vertex_descriptor _source = vertex(start_vertex, graph);
 
-    if (_source < 0 /*|| _source >= num_nodes*/) 
+    if (_source < 0 /*|| _source >= num_nodes*/)
     {
         *err_msg = (char *) "Starting vertex not found";
         return -1;
@@ -148,9 +148,9 @@ boost_dijkstra(edge_t *edges, unsigned int count, int max_id, int start_vertex, 
     int max = MAX_NODES;
     path_vect.push_back(_target);
 
-    while (_target != _source) 
+    while (_target != _source)
     {
-        if (_target == predecessors[_target]) 
+        if (_target == predecessors[_target])
         {
             *err_msg = (char *) "No path found";
             return 0;
@@ -158,7 +158,7 @@ boost_dijkstra(edge_t *edges, unsigned int count, int max_id, int start_vertex, 
         _target = predecessors[_target];
 
         path_vect.push_back(_target);
-        if (!max--) 
+        if (!max--)
         {
             *err_msg = (char *) "Overflow";
             return -1;
@@ -179,7 +179,7 @@ boost_dijkstra(edge_t *edges, unsigned int count, int max_id, int start_vertex, 
 
         (*path)[j].edge_id = -1;
         (*path)[j].cost = distances[_target];
-        if (i == 0) 
+        if (i == 0)
         {
             continue;
         }
@@ -187,14 +187,14 @@ boost_dijkstra(edge_t *edges, unsigned int count, int max_id, int start_vertex, 
         v_src = path_vect.at(i);
         v_targ = path_vect.at(i - 1);
 
-        for (tie(out_i, out_end) = out_edges(v_src, graph); 
+        for (tie(out_i, out_end) = out_edges(v_src, graph);
              out_i != out_end; ++out_i)
         {
             graph_traits < graph_t >::vertex_descriptor v, targ;
             e = *out_i;
             v = source(e, graph);
             targ = target(e, graph);
-                                                                
+
             if (targ == v_targ)
             {
                 (*path)[j].edge_id = graph[*out_i].id;
