@@ -319,7 +319,7 @@ static int compute_shortest_path(char* sql, int start_vertex,
   start_vertex -= v_min_id;
   end_vertex   -= v_min_id;
 
-  ret = boost_dijkstra(edges, total_tuples, start_vertex, end_vertex,
+  ret = boost_dijkstra(edges, total_tuples, v_max_id, start_vertex, end_vertex,
                        directed, has_reverse_cost,
                        path, path_count, &err_msg);
 

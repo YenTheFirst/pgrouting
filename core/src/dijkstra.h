@@ -43,7 +43,7 @@ typedef struct path_element
 #ifdef __cplusplus
 extern "C"
 #endif
-int boost_dijkstra(edge_t *edges, unsigned int count, int start_vertex, int end_vertex,
+int boost_dijkstra(edge_t *edges, unsigned int count, int max_id, int start_vertex, int end_vertex,
 		   bool directed, bool has_reverse_cost,
                    path_element_t **path, int *path_count, char **err_msg);
 

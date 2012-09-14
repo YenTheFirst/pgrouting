@@ -56,9 +56,9 @@ struct Vertex
 
 
 int 
-boost_dijkstra(edge_t *edges, unsigned int count, int start_vertex, int end_vertex,
-	       bool directed, bool has_reverse_cost,
-	       path_element_t **path, int *path_count, char **err_msg)
+boost_dijkstra(edge_t *edges, unsigned int count, int max_id, int start_vertex, int end_vertex,
+    bool directed, bool has_reverse_cost,
+    path_element_t **path, int *path_count, char **err_msg)
 {
 
     // FIXME: use a template for the directedS parameters
@@ -68,8 +68,7 @@ boost_dijkstra(edge_t *edges, unsigned int count, int start_vertex, int end_vert
     typedef graph_traits < graph_t >::edge_descriptor edge_descriptor;
     typedef std::pair<int, int> Edge;
 
-    // FIXME: compute this value
-    const unsigned int num_nodes = ((directed && has_reverse_cost ? 2 : 1) * count) + 100;
+  const unsigned int num_nodes = max_id;
 
     graph_t graph(num_nodes);
 
